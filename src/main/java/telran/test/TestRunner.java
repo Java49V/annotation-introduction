@@ -23,7 +23,7 @@ public class TestRunner implements Runnable {
         for (Method method : methods) {
             if (method.isAnnotationPresent(BeforeEach.class)) {
                 beforeEachMethod = method;
-//                beforeEachMethod.setAccessible(true);
+                beforeEachMethod.setAccessible(true);
                 break;
             }
         }
