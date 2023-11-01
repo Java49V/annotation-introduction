@@ -2,130 +2,70 @@ package telran.test;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.stream.IntStream;
 
 import telran.test.annotation.BeforeEach;
 import telran.test.annotation.Test;
 
 public class TestRunner implements Runnable {
-    private Object testObj;
-    
-    public TestRunner(Object testObj) {
-        super();
-        this.testObj = testObj;
-    }
+	private Object testObj;
+	
+	public TestRunner(Object testObj) {
+		super();
+		this.testObj = testObj;
+	}
 
-    @Override
-    public void run() {
-        Class<?> clazz = testObj.getClass();
-        Method[] methods = clazz.getDeclaredMethods();
-        
-        List<Method> beforeEachMethods = new ArrayList<>();
-        for (Method method : methods) {
-            if (method.isAnnotationPresent(BeforeEach.class)) {
-                method.setAccessible(true);
-                beforeEachMethods.add(method);
-            }
-        }
+	@Override
+	public void run() {
+			Class<?> clazz = testObj.getClass();
+			Method[] methods = clazz.getDeclaredMethods();
+			Method[] beforeEachMethods = getBeforeEachMethods(methods);
+			runTestMethods(methods, beforeEachMethods);
 
-        for (Method testMethod : methods) {
-            if (testMethod.isAnnotationPresent(Test.class)) {
-                for (Method beforeEach : beforeEachMethods) {
-                    try {
-                        beforeEach.invoke(testObj);
-                    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-                        System.out.println("error in BeforeEach: " + e.getMessage());
-                    }
-                }
-                testMethod.setAccessible(true);
-                try {
-                    testMethod.invoke(testObj);
-                } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-                    System.out.println("error: " + e.getMessage());
-                }
-            }
-        }
-    }
+	}
+
+	private Method[] getBeforeEachMethods(Method[] methods) {
+		
+		return Arrays.stream(methods).filter(m -> m.isAnnotationPresent(BeforeEach.class)).toArray(Method[]::new);
+	}
+
+	private void runTestMethods(Method[] methods, Method[] beforeEachMethods) {
+		for(Method method: methods) {
+			if(method.isAnnotationPresent(Test.class)) {
+					runOneTestMethod(method, beforeEachMethods);
+			}
+		}
+	}
+
+	private void runMethods(Method[] methods) {
+		for(Method method: methods) {
+				method.setAccessible(true);
+				try {
+					method.invoke(testObj);
+				} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+					throw new RuntimeException(e);
+				}
+		}
+		
+	}
+	private void runOneTestMethod(Method method, Method[] beforeEachMethods) {
+		method.setAccessible(true);
+		runMethods(beforeEachMethods);
+		Test testAnnotation = method.getAnnotation(Test.class);
+		int nRuns = testAnnotation.nRuns();
+		Instant start = Instant.now();
+		IntStream.range(0, nRuns).forEach(i -> {
+			try {
+				method.invoke(testObj);
+			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+				throw new RuntimeException(e);
+			}
+		});
+		System.out.printf("test: %s; running time: %d\n", method.getName(),
+				ChronoUnit.MILLIS.between(start, Instant.now()));
+	}
+
 }
-
-// #1 
-
-//public class TestRunner implements Runnable {
-//    private Object testObj;
-//    
-//    public TestRunner(Object testObj) {
-//        super();
-//        this.testObj = testObj;
-//    }
-//
-//    @Override
-//    public void run() {
-//        Class<?> clazz = testObj.getClass();
-//        Method[] methods = clazz.getDeclaredMethods();
-//        
-//        Method beforeEachMethod = null;
-//        for (Method method : methods) {
-//            if (method.isAnnotationPresent(BeforeEach.class)) {
-//                beforeEachMethod = method;
-//                beforeEachMethod.setAccessible(true);
-//                break;
-//            }
-//        }
-//
-//        for (Method method : methods) {
-//            if (method.isAnnotationPresent(Test.class)) {
-//                if (beforeEachMethod != null) {
-//                    try {
-//                        beforeEachMethod.invoke(testObj);
-//                    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-//                        System.out.println("error in BeforeEach: " + e.getMessage());
-//                    }
-//                }
-//                method.setAccessible(true);
-//                try {
-//                    method.invoke(testObj);
-//                } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-//                    System.out.println("error: " + e.getMessage());
-//                }
-//            }
-//        }
-//    }
-//}
-
-
-
-
-//package telran.test;
-//
-//import java.lang.reflect.InvocationTargetException;
-//import java.lang.reflect.Method;
-//
-//import telran.test.annotation.Test;
-//
-//public class TestRunner implements Runnable {
-//	private Object testObj;
-//	
-//	public TestRunner(Object testObj) {
-//		super();
-//		this.testObj = testObj;
-//	}
-//
-//	@Override
-//	public void run() {
-//			Class<?> clazz = testObj.getClass();
-//			Method[] methods = clazz.getDeclaredMethods();
-//			for(Method method: methods) {
-//				if(method.isAnnotationPresent(Test.class)) {
-//					method.setAccessible(true);
-//					try {
-//						method.invoke(testObj);
-//					} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-//						System.out.println("error: " + e.getMessage());
-//					}
-//				}
-//			}
-//
-//	}
-//
-//}
